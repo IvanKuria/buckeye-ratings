@@ -1,9 +1,9 @@
-# Privacy Policy — AggieRatings
+# Privacy Policy — BuckeyeRatings
 
 _Last updated: 2026-06-28_
 
-AggieRatings is a browser extension that shows Rate My Professors ratings on
-UC Davis's Class Search Tool. This policy explains what the extension accesses,
+BuckeyeRatings is a browser extension that shows Rate My Professors ratings on
+Ohio State's Class Search. This policy explains what the extension accesses,
 stores, and sends.
 
 ## Summary
@@ -14,26 +14,26 @@ stores, and sends.
 
 ## What the extension accesses
 
-The extension runs only on UC Davis's Class Search Tool
-(`registrar-apps.ucdavis.edu`). To show ratings it reads the **instructor
-names and course codes already displayed on that page**. It does not read your
+The extension runs only on Ohio State's Class Search
+(`classes.osu.edu`). To show ratings it reads the **instructor
+names and course information already displayed on that page**. It does not read your
 personal information, login, schedule, or registration data, and it has no
-access to any authenticated UC Davis system.
+access to any authenticated Ohio State system.
 
 ## Network requests
 
-To display ratings and photos, the extension fetches data from:
+To display ratings, the extension fetches data from a single source:
 
 - **Rate My Professors** (`ratemyprofessors.com`) — professor ratings and reviews.
-- **UC Davis departmental websites** (`*.ucdavis.edu`) — public faculty pages,
-  used only to find a professor's published headshot.
 
-These requests contain only a professor's name or course code — never anything
-about you. No identifiers, cookies, or personal data are sent.
+These requests contain only a professor's name — never anything
+about you. No identifiers, cookies, or personal data are sent. The extension
+does not contact any Ohio State server; instructor names are read locally from
+the Class Search page.
 
 ## Local storage
 
-Fetched ratings and photo URLs are cached in your browser's local extension storage
+Fetched ratings are cached in your browser's local extension storage
 (`chrome.storage.local`) to speed up repeat visits. This data never leaves your
 device and can be cleared at any time from the extension's settings ("Clear
 cache") or by removing the extension.
@@ -46,9 +46,9 @@ user-entered content.
 
 ## Third parties
 
-The third-party services above have their own privacy policies. AggieRatings is
+The third-party services above have their own privacy policies. BuckeyeRatings is
 an independent project and is **not affiliated with, endorsed by, or sponsored
-by the University of California, Davis or Rate My Professors**.
+by The Ohio State University or Rate My Professors**.
 
 ## Contact
 

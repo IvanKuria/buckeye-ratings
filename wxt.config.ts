@@ -16,7 +16,6 @@ export default defineConfig({
     action: {},
     host_permissions: [
       'https://classes.osu.edu/*',
-      'https://content.osu.edu/*',
       'https://www.ratemyprofessors.com/*',
     ],
     web_accessible_resources: [

@@ -1,6 +1,6 @@
-# Contributing to AggieRatings
+# Contributing to BuckeyeRatings
 
-Thanks for your interest in improving AggieRatings. This guide covers everything you need to get set up, understand the codebase, and ship a change.
+Thanks for your interest in improving BuckeyeRatings. This guide covers everything you need to get set up, understand the codebase, and ship a change.
 
 ## Getting Started
 
@@ -9,15 +9,15 @@ Thanks for your interest in improving AggieRatings. This guide covers everything
 - [Node.js](https://nodejs.org/) 18 or newer
 - Google Chrome (or any Chromium browser)
 
-No login or account is required for testing — the UC Davis [Class Search Tool](https://registrar-apps.ucdavis.edu/courses/search/index.cfm) is publicly accessible.
+No login or account is required for testing — Ohio State's [Class Search](https://classes.osu.edu) is publicly accessible.
 
 ### Build and Run
 
 Clone the repo and install dependencies:
 
 ```bash
-git clone https://github.com/IvanKuria/aggie-ratings.git
-cd aggie-ratings
+git clone https://github.com/IvanKuria/buckeye-ratings.git
+cd buckeye-ratings
 npm install
 ```
 
@@ -70,7 +70,7 @@ src/
 | File | Responsibility |
 |------|----------------|
 | `src/entrypoints/background.ts` | Service worker entry. Routes messages and orchestrates API calls. |
-| `src/entrypoints/content.ts` | Content script entry. Watches the results container and mounts the UI. |
+| `src/entrypoints/content.ts` | Content script entry. Watches the results and mounts the UI. |
 | `src/lib/background/rmpCache.ts` | Rate My Professors GraphQL search, name matching, and caching. |
 | `src/lib/content/shared/mountHelper.tsx` | Mounts React UI into the host page. |
 | `wxt.config.ts` | Extension manifest, permissions, and build configuration. |
@@ -82,15 +82,15 @@ src/
 ```
 Content Script                     Background SW               Side Panel
 --------------                     ------------                ----------
-Observe #courseResultsDiv     -->  Fetch RMP (GraphQL)    -->  Professor profile
-Parse instructor + course     -->  Match best professor   -->  Top tags
-Render rating bar per section -->  Cache in storage            Reviews carousel
+Observe results SPA           -->  Fetch RMP (GraphQL)    -->  Professor profile
+Read instructor + course      -->  Match best professor   -->  Top tags
+Mount rating bar per section  -->  Cache in storage            Reviews carousel
 ```
 
 ### Data Flow
 
-1. The **content script** uses a `MutationObserver` to watch the results container (`#courseResultsDiv`) on the UC Davis Class Search Tool. The tool is a ColdFusion app that drops a results table into that container after each search and re-sort.
-2. It parses each result row from the results table to read the instructor name and course code, then renders loading skeletons.
+1. The **content script** uses a `MutationObserver` to watch the search results on Ohio State's Class Search. The page is an AngularJS single-page app that renders results into the page after each search and as you scroll.
+2. For each `div.section-container`, it reads the instructor's full name (from the `<ul>` under the "Instructors" heading), the course code, and the class number, then renders loading skeletons. It re-scans on search and infinite-scroll.
 3. Names are sent to the **background service worker**, which fetches data from the Rate My Professors GraphQL API (ratings and reviews).
 4. Results are cached in `chrome.storage.local` for one week.
 5. The inline **rating bar** updates with the resolved professor rating.
@@ -107,7 +107,7 @@ Render rating bar per section -->  Cache in storage            Reviews carousel
 
 ### Content Script CSS
 
-The content script runs inside UC Davis pages, so styles must not leak into or collide with the host page.
+The content script runs inside Ohio State pages, so styles must not leak into or collide with the host page.
 
 | Avoid | Prefer |
 |-------|--------|
@@ -131,7 +131,7 @@ All Rate My Professors logic lives in `src/lib/background/rmpCache.ts`:
 
 - `generateSearchVariants()` produces name variants from the parsed instructor name.
 - `searchWithFallback()` runs the cascading search strategy.
-- `selectBestRmpMatch()` does Fuse.js matching with UC Davis school validation.
+- `selectBestRmpMatch()` does Fuse.js matching with Ohio State school validation.
 
 ## Pull Request Guidelines
 
@@ -139,7 +139,7 @@ Before opening a pull request, confirm that:
 
 1. The change is focused. Keep unrelated edits in separate PRs.
 2. `npm run build` passes.
-3. You tested against the real UC Davis Class Search Tool.
+3. You tested against the real Ohio State Class Search.
 4. Content script CSS stays prefixed with `rms-`.
 5. The PR description explains what changed and why.
 
@@ -160,7 +160,7 @@ AI-assisted contributions are welcome. If you used an AI tool to help write a ch
 
 ## Reporting Bugs
 
-Use the [bug report template](https://github.com/IvanKuria/aggie-ratings/issues/new?template=bug_report.md). Include:
+Use the [bug report template](https://github.com/IvanKuria/buckeye-ratings/issues/new?template=bug_report.md). Include:
 
 - What page you were on
 - What you expected to happen
@@ -169,4 +169,4 @@ Use the [bug report template](https://github.com/IvanKuria/aggie-ratings/issues/
 
 ## Questions
 
-Open a [discussion or issue](https://github.com/IvanKuria/aggie-ratings/issues), or reach out to [@IvanKuria](https://github.com/IvanKuria).
+Open a [discussion or issue](https://github.com/IvanKuria/buckeye-ratings/issues), or reach out to [@IvanKuria](https://github.com/IvanKuria).

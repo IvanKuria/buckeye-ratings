@@ -3,46 +3,46 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AggieRatings — Privacy Policy</title>
-<meta name="description" content="Privacy policy for the AggieRatings Chrome extension." />
+<title>BuckeyeRatings — Privacy Policy</title>
+<meta name="description" content="Privacy policy for the BuckeyeRatings Chrome extension." />
 <style>
-  :root { --blue:#022851; --gold:#FFBF00; --ink:#1a2330; --muted:#5b6776; --line:#e6e9ee; }
+  :root { --scarlet:#BB0000; --gray:#666666; --ink:#1a2330; --muted:#5b6776; --line:#e6e9ee; }
   * { box-sizing:border-box; }
   body {
     margin:0; font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color:var(--ink); background:#f6f8fa;
   }
   header {
-    background:linear-gradient(160deg,#022851,#011629); color:#fff; padding:40px 24px;
+    background:linear-gradient(160deg,#BB0000,#7a0000); color:#fff; padding:40px 24px;
   }
   .wrap { max-width:760px; margin:0 auto; }
   header .wrap { display:flex; align-items:center; gap:16px; }
   header h1 { margin:0; font-size:24px; letter-spacing:-0.01em; }
-  header p { margin:2px 0 0; color:#cdd9e6; font-size:14px; }
-  .badge { width:44px; height:44px; border-radius:11px; background:#FFBF00; color:#022851; display:flex; align-items:center; justify-content:center; font-size:24px; }
+  header p { margin:2px 0 0; color:#f3d6d6; font-size:14px; }
+  .badge { width:44px; height:44px; border-radius:11px; background:#fff; color:#BB0000; display:flex; align-items:center; justify-content:center; font-size:24px; }
   main { background:#fff; max-width:760px; margin:24px auto 64px; padding:8px 32px 40px; border:1px solid var(--line); border-radius:14px; }
   h2 { font-size:18px; margin:32px 0 8px; }
-  a { color:#0a66c2; }
+  a { color:#BB0000; }
   .updated { color:var(--muted); font-size:13px; }
   ul { padding-left:20px; }
-  .note { background:#f0f6ff; border:1px solid #d6e6ff; border-radius:10px; padding:14px 16px; }
+  .note { background:#fceeee; border:1px solid #f3d6d6; border-radius:10px; padding:14px 16px; }
   footer { text-align:center; color:var(--muted); font-size:13px; padding-bottom:48px; }
 </style>
 </head>
 <body>
   <header>
     <div class="wrap">
-      <div class="badge">🎓</div>
+      <div class="badge">★</div>
       <div>
-        <h1>AggieRatings — Privacy Policy</h1>
-        <p class="updated" style="color:#cdd9e6">Last updated: June 28, 2026</p>
+        <h1>BuckeyeRatings — Privacy Policy</h1>
+        <p class="updated" style="color:#f3d6d6">Last updated: June 28, 2026</p>
       </div>
     </div>
   </header>
 
   <main>
-    <p>AggieRatings is a browser extension that shows Rate My Professors ratings
-    on UC Davis's Class Search Tool. This policy explains what the extension
+    <p>BuckeyeRatings is a browser extension that shows Rate My Professors ratings
+    on Ohio State's Class Search. This policy explains what the extension
     accesses, stores, and sends.</p>
 
     <div class="note">
@@ -52,23 +52,24 @@
     </div>
 
     <h2>What the extension accesses</h2>
-    <p>The extension runs only on UC Davis's Class Search Tool
-    (<code>registrar-apps.ucdavis.edu</code>). To show ratings it reads the
-    instructor names and course codes already displayed on that page. It does not
+    <p>The extension runs only on Ohio State's Class Search
+    (<code>classes.osu.edu</code>). To show ratings it reads the
+    instructor names and course information already displayed on that page. It does not
     read your personal information, login, schedule, or registration data, and it
-    has no access to any authenticated UC Davis system.</p>
+    has no access to any authenticated Ohio State system.</p>
 
     <h2>Network requests</h2>
-    <p>To display ratings and photos, the extension fetches data from:</p>
+    <p>To display ratings, the extension fetches data from a single source:</p>
     <ul>
       <li><strong>Rate My Professors</strong> (<code>ratemyprofessors.com</code>) — professor ratings and reviews.</li>
-      <li><strong>UC Davis departmental websites</strong> (<code>*.ucdavis.edu</code>) — public faculty pages, used only to find a professor's published headshot.</li>
     </ul>
-    <p>These requests contain only a professor's name or course code — never
-    anything about you. No identifiers, cookies, or personal data are sent.</p>
+    <p>These requests contain only a professor's name — never
+    anything about you. No identifiers, cookies, or personal data are sent. The
+    extension does not contact any Ohio State server; instructor names are read
+    locally from the Class Search page.</p>
 
     <h2>Local storage</h2>
-    <p>Fetched ratings and photo URLs are cached in your browser's local extension storage
+    <p>Fetched ratings are cached in your browser's local extension storage
     (<code>chrome.storage.local</code>) to speed up repeat visits. This data never
     leaves your device and can be cleared at any time from the extension's
     settings ("Clear cache") or by removing the extension.</p>
@@ -79,9 +80,9 @@
     user-entered content.</p>
 
     <h2>Third parties</h2>
-    <p>The third-party services above have their own privacy policies. AggieRatings
+    <p>The third-party services above have their own privacy policies. BuckeyeRatings
     is an independent project and is <strong>not affiliated with, endorsed by, or
-    sponsored by the University of California, Davis or Rate My Professors</strong>.</p>
+    sponsored by The Ohio State University or Rate My Professors</strong>.</p>
 
     <h2>Contact</h2>
     <p>Questions? Email <a href="mailto:ikuria@ucsc.edu">ikuria@ucsc.edu</a>.</p>
@@ -91,6 +92,6 @@
     new version will be published on this page.</p>
   </main>
 
-  <footer>AggieRatings · <a href="./">Home</a> · <a href="https://github.com/IvanKuria/aggie-ratings">GitHub</a></footer>
+  <footer>BuckeyeRatings · <a href="./">Home</a> · <a href="https://github.com/IvanKuria/buckeye-ratings">GitHub</a></footer>
 </body>
 </html>
