@@ -5,11 +5,11 @@
  */
 
 import Fuse from 'fuse.js';
-import type { FuseResult } from 'fuse.js';
 import { getSettings } from '@/lib/storage/settings';
 import { logger } from '@/lib/logger';
 import { RMP_CACHE_PREFIX, OSU_SCHOOL_ID } from '@/lib/constants';
 import { getCacheDurationMs } from '@/lib/background/cacheConfig';
+import { SUBJECT_DEPARTMENT_KEYWORDS } from '@/lib/background/subjectDepartments';
 import type {
   RmpEdge,
   RmpReview,
@@ -69,6 +69,12 @@ interface RmpRatingsPayload {
 interface SelectBestRmpMatchOptions {
   didFallback?: boolean;
   schoolId?: string;
+  /**
+   * The course's subject code (e.g. "SOCIOL", "ART HIST"). When provided, it is
+   * matched against each candidate's RMP `department` to disambiguate same-name
+   * professors across departments. See {@link departmentMatchesSubject}.
+   */
+  subject?: string | null;
 }
 
 // --- Constants ---
@@ -279,6 +285,52 @@ function normalize(value: unknown): string {
     .replace(/[^a-z]/g, '');
 }
 
+/**
+ * True when two already-normalized (lowercase, letters-only) strings refer to the
+ * same thing: equal, or one is a prefix of the other with the shorter at least 3
+ * letters. The min-length guard stops tiny fragments ("art") from matching by
+ * accident.
+ */
+function tokenPrefixMatch(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  return shorter.length >= 3 && longer.startsWith(shorter);
+}
+
+/**
+ * Decides whether a course subject code and an RMP department name refer to the
+ * same field — the signal used to disambiguate same-name professors.
+ *
+ * Two tiers:
+ *   1. An explicit OSU-subject → RMP-department keyword table
+ *      ({@link SUBJECT_DEPARTMENT_KEYWORDS}), grounded in real RMP department
+ *      strings. This handles codes RMP names differently than OSU does
+ *      ("KINESIO" → "Physical Education", "BUSML" → "Marketing"/"Business").
+ *   2. A generic prefix check, since most codes are simply truncations of the
+ *      department name ("SOCIOL" → "Sociology", "ENTMLGY" → "Entomology").
+ *
+ * It reliably separates Sociology from Mathematics/Physics/Chemistry/etc. (the
+ * reported collisions) without over-claiming on codes that don't map cleanly.
+ */
+function departmentMatchesSubject(
+  subject: string | null | undefined,
+  department: string | null | undefined
+): boolean {
+  const dept = normalize(department);
+  const subjectCode = normalize(subject);
+  if (!dept || !subjectCode) return false;
+
+  // Tier 1: explicit overrides for codes whose RMP department name diverges.
+  const keywords = SUBJECT_DEPARTMENT_KEYWORDS[subjectCode];
+  if (keywords && keywords.some((kw) => tokenPrefixMatch(dept, kw))) {
+    return true;
+  }
+
+  // Tier 2: generic code-is-a-prefix-of-department fallback.
+  return tokenPrefixMatch(subjectCode, dept);
+}
+
 // --- Matching ---
 
 /**
@@ -324,7 +376,11 @@ export function selectBestRmpMatch(
   name: string | null | undefined,
   options: SelectBestRmpMatchOptions = {}
 ): RmpTeacherNode | null {
-  const { didFallback = false, schoolId = OSU_SCHOOL_ID } = options;
+  const {
+    didFallback = false,
+    schoolId = OSU_SCHOOL_ID,
+    subject = null,
+  } = options;
 
   if (!Array.isArray(edges) || edges.length === 0) return null;
 
@@ -385,42 +441,72 @@ export function selectBestRmpMatch(
   const searchTerms = generateSearchVariants(name);
   if (searchTerms.length === 0) searchTerms.push(name.trim());
 
-  let bestResult: FuseResult<RmpTeacherNode> | null = null;
-  let bestScore = 1; // lower is better in Fuse.js
-
+  // Collect the *set* of name-plausible candidates (not just the single best),
+  // recording each one's best fuzzy score across all search terms. We need the
+  // whole set — not one winner — so we can tell whether same-name candidates
+  // collide and, if so, let the course subject break the tie.
+  const bestScoreByCandidate = new Map<RmpTeacherNode, number>();
   for (const term of searchTerms) {
-    const results = fuse.search(term);
-    if (results.length > 0 && (results[0].score ?? 1) < bestScore) {
-      bestResult = results[0];
-      bestScore = results[0].score ?? 1;
+    for (const result of fuse.search(term)) {
+      const score = result.score ?? 1;
+      const prev = bestScoreByCandidate.get(result.item);
+      if (prev === undefined || score < prev) {
+        bestScoreByCandidate.set(result.item, score);
+      }
     }
   }
 
-  if (bestResult?.item) {
-    // When didFallback is true, require school match
-    if (didFallback && bestResult.item.school?.id !== schoolId) {
-      return null;
+  // Fallback: rescue via exact normalized comparison when fuzzy search finds
+  // nothing (e.g. nickname/order quirks Fuse can't bridge).
+  if (bestScoreByCandidate.size === 0) {
+    const targetVariants = searchTerms.map(normalize);
+    for (const candidate of candidates) {
+      const tokens = (candidate.nameTokens || []).map(normalize);
+      if (targetVariants.some((t) => tokens.includes(t))) {
+        bestScoreByCandidate.set(candidate, 0.999);
+      }
     }
-    return bestResult.item;
   }
 
-  // Fallback: exact normalized comparison
-  const targetVariants = searchTerms.map(normalize);
-  const fallbackMatch = candidates.find((candidate) => {
-    const tokens = (candidate.nameTokens || []).map(normalize);
-    return targetVariants.some((t) => tokens.includes(t));
+  if (bestScoreByCandidate.size === 0) {
+    // No confident match — return null instead of a random candidate
+    return null;
+  }
+
+  // Order plausible matches by name score (asc), then by numRatings (desc) as a
+  // tiebreaker for identically-named people.
+  let plausible = [...bestScoreByCandidate.keys()].sort((a, b) => {
+    const sa = bestScoreByCandidate.get(a) ?? 1;
+    const sb = bestScoreByCandidate.get(b) ?? 1;
+    if (sa !== sb) return sa - sb;
+    return (b?.numRatings ?? 0) - (a?.numRatings ?? 0);
   });
 
-  if (fallbackMatch) {
-    // Still check school for didFallback
-    if (didFallback && fallbackMatch.school?.id !== schoolId) {
-      return null;
-    }
-    return fallbackMatch;
+  // When RMP fell back to cross-school results, drop any candidate that isn't at
+  // the target school before deciding anything else.
+  if (didFallback) {
+    plausible = plausible.filter((c) => c.school?.id === schoolId);
+    if (plausible.length === 0) return null;
   }
 
-  // No confident match — return null instead of a random candidate
-  return null;
+  // Department-aware disambiguation. When we know the course subject, prefer the
+  // namesake whose RMP department fits it. If none fits AND several namesakes
+  // collide, we can't safely tell which is the real instructor, so suppress the
+  // match rather than show a confidently-wrong rating. A single unambiguous
+  // candidate is still surfaced even when its department doesn't line up.
+  if (subject) {
+    const deptFit = plausible.filter((c) =>
+      departmentMatchesSubject(subject, c.department)
+    );
+    if (deptFit.length > 0) {
+      return deptFit[0];
+    }
+    if (plausible.length > 1) {
+      return null;
+    }
+  }
+
+  return plausible[0];
 }
 
 // --- API Fetching ---
@@ -487,7 +573,8 @@ async function fetchRmpSearchResults(
  */
 async function searchWithFallback(
   name: string | null | undefined,
-  schoolId: string = OSU_SCHOOL_ID
+  schoolId: string = OSU_SCHOOL_ID,
+  subject?: string
 ): Promise<RmpSearchResult> {
   if (!name) return { edges: null, didFallback: false, ok: true };
 
@@ -517,6 +604,7 @@ async function searchWithFallback(
       const match = selectBestRmpMatch(edges, name, {
         didFallback,
         schoolId: schoolId || OSU_SCHOOL_ID,
+        subject,
       });
 
       if (match) {
@@ -557,7 +645,8 @@ const inFlightLookups = new Map<string, Promise<RmpData | null>>();
 export async function fetchCachedRateMyProfessorData(
   uID: string | null | undefined,
   name: string,
-  schoolId: string = OSU_SCHOOL_ID
+  schoolId: string = OSU_SCHOOL_ID,
+  subject?: string
 ): Promise<RmpData | null> {
   if (!uID) {
     return null;
@@ -582,7 +671,8 @@ export async function fetchCachedRateMyProfessorData(
 
       const { edges, didFallback, ok } = await searchWithFallback(
         name,
-        schoolId
+        schoolId,
+        subject
       );
 
       // Only cache when a real search actually ran. A genuine "not found"

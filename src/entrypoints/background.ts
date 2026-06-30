@@ -32,7 +32,8 @@ import type {
 async function fetchProfessorBundle(
   name: string,
   _ID: string | null,
-  rateMyProfSchoolId?: string
+  rateMyProfSchoolId?: string,
+  subject?: string
 ): Promise<ProfessorBundle> {
   // OSU has no campus-directory source wired here, so this is RMP-only. We key
   // the RMP cache by name (the content script passes the 'jdoe' UID sentinel).
@@ -40,7 +41,8 @@ async function fetchProfessorBundle(
   const rmpResult = await fetchCachedRateMyProfessorData(
     rmpCacheKey,
     name,
-    rateMyProfSchoolId
+    rateMyProfSchoolId,
+    subject
   );
 
   // rmpResult is now { edges, didFallback } or legacy array format
@@ -54,6 +56,7 @@ async function fetchProfessorBundle(
   const rateMyProfessorNode = selectBestRmpMatch(rmpEdges, name, {
     didFallback,
     schoolId: rateMyProfSchoolId,
+    subject,
   });
 
   // Normalize "would take again" at the source. RMP returns -1 when unknown;
@@ -105,7 +108,8 @@ export default defineBackground(() => {
             const result = await fetchProfessorBundle(
               message.name,
               message.ID,
-              message.rateMyProfSchoolId
+              message.rateMyProfSchoolId,
+              message.subject
             );
             sendResponse(result);
           } catch (error) {

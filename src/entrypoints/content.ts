@@ -37,9 +37,14 @@ const MOUNT_CLASS = 'rms-bar-mount';
 /**
  * Asks the background worker for RMP data by name. We pass the 'jdoe' sentinel
  * as the UID so the background skips any campus-directory lookup and keys the
- * RMP cache by name (OSU has no campus-directory source wired here).
+ * RMP cache by name (OSU has no campus-directory source wired here). The
+ * `subject` (e.g. "SOCIOL") lets the background disambiguate same-name RMP
+ * profiles across departments.
  */
-function fetchProfessorData(name: string): Promise<FetchProfessorDataResponse> {
+function fetchProfessorData(
+  name: string,
+  subject: string
+): Promise<FetchProfessorDataResponse> {
   // Bail if the extension was reloaded while this page stayed open (stale
   // context). The caller treats a rejection as "no data" and removes the bar.
   if (!chrome.runtime?.id) {
@@ -49,7 +54,21 @@ function fetchProfessorData(name: string): Promise<FetchProfessorDataResponse> {
     action: 'fetchProfessorData',
     ID: 'jdoe',
     name,
+    subject,
   });
+}
+
+/**
+ * Extracts the subject code from a full course code: "SOCIOL 2382" -> "SOCIOL",
+ * "ART HIST 2002" -> "ART HIST". The subject is every token before the first
+ * token that begins with a digit (the catalog number, e.g. "2382" or "2367.01").
+ */
+function subjectFromCourse(course: string): string {
+  const tokens = course.trim().split(/\s+/);
+  const numIdx = tokens.findIndex((t) => /^\d/.test(t));
+  const subjectTokens =
+    numIdx === -1 ? tokens.slice(0, -1) : tokens.slice(0, numIdx);
+  return subjectTokens.join(' ');
 }
 
 // --- Instructor email capture (for headshots) ---
@@ -77,7 +96,11 @@ function normName(s: string): string {
 }
 
 /** Reads q / campus / term from the SPA's hash query string. */
-function readSearchParams(): { q: string; campus: string; term: string } | null {
+function readSearchParams(): {
+  q: string;
+  campus: string;
+  term: string;
+} | null {
   const hash = location.hash || '';
   const qi = hash.indexOf('?');
   if (qi === -1) return null;
@@ -189,9 +212,7 @@ function parseSection(sec: HTMLElement): ParsedSection | null {
   if (!instructorName || !mountParent) return null;
 
   // Course code from the screen-reader span ("CSE 2221:" -> "CSE 2221").
-  const course = (
-    sec.querySelector('h4.subtitle .sr-only')?.textContent || ''
-  )
+  const course = (sec.querySelector('h4.subtitle .sr-only')?.textContent || '')
     .replace(/:\s*$/, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -221,7 +242,9 @@ async function processSection(sec: HTMLElement): Promise<void> {
 
   // Guard against a stale mount left by a previous pass.
   if (
-    mountParent.querySelector(`.${MOUNT_CLASS}[data-br-for="${CSS.escape(key)}"]`)
+    mountParent.querySelector(
+      `.${MOUNT_CLASS}[data-br-for="${CSS.escape(key)}"]`
+    )
   ) {
     return;
   }
@@ -235,7 +258,10 @@ async function processSection(sec: HTMLElement): Promise<void> {
 
   let bundle: ProfessorBundle | null = null;
   try {
-    const resp = await fetchProfessorData(instructorName);
+    const resp = await fetchProfessorData(
+      instructorName,
+      subjectFromCourse(course)
+    );
     bundle = resp && !('error' in resp) ? resp : null;
   } catch {
     bundle = null;
@@ -276,12 +302,10 @@ async function processSection(sec: HTMLElement): Promise<void> {
  */
 async function scan(): Promise<void> {
   await refreshEmails();
-  document
-    .querySelectorAll<HTMLElement>(SECTION_SELECTOR)
-    .forEach((sec) => {
-      if (sec.getAttribute(PROCESSED_ATTR)) return;
-      void processSection(sec);
-    });
+  document.querySelectorAll<HTMLElement>(SECTION_SELECTOR).forEach((sec) => {
+    if (sec.getAttribute(PROCESSED_ATTR)) return;
+    void processSection(sec);
+  });
 }
 
 export default defineContentScript({

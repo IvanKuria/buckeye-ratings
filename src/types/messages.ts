@@ -11,6 +11,8 @@ export interface FetchProfessorDataMessage {
   ID: string | null;
   name: string;
   rateMyProfSchoolId?: string;
+  /** Course subject code (e.g. "SOCIOL") used to disambiguate same-name RMP profiles. */
+  subject?: string;
 }
 
 export interface ShowProfessorMessage {
