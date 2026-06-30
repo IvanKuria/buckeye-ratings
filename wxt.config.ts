@@ -15,8 +15,11 @@ export default defineConfig({
     permissions: ['storage', 'sidePanel'],
     action: {},
     host_permissions: [
-      'https://classes.osu.edu/*',
       'https://www.ratemyprofessors.com/*',
+      'https://classes.osu.edu/*',
+      // Public class API (instructor usernames) and the university photo service.
+      'https://content.osu.edu/*',
+      'https://opic.osu.edu/*',
     ],
     web_accessible_resources: [
       {

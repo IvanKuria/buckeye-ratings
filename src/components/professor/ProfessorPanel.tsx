@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useSettings } from '@/lib/hooks/useSettings';
 import { stagger, professorSwitch } from '@/lib/animations';
 import { getFirst } from '@/lib/format';
+import { useProfessorPhoto } from '@/lib/hooks/useProfessorPhoto';
 import ProfessorHeader from '@/components/professor/ProfessorHeader';
 import RatingSummary from '@/components/professor/RatingSummary';
 import RatingTags from '@/components/professor/RatingTags';
@@ -26,11 +27,13 @@ export default function ProfessorPanel({
   localResearchTopic,
   localClassesTaught,
   instructorName,
+  instructorEmail,
 }: ProfessorData) {
   const { settings, loading: settingsLoading } = useSettings();
 
-  // OSU has no wired headshot source yet, so we render a clean initials avatar.
-  const photoSrc = null;
+  // Best-effort headshot from OSU's university-wide photo service, keyed by the
+  // instructor's username (from the class API email).
+  const photoSrc = useProfessorPhoto(instructorEmail);
 
   if (!apiData && !rateMyProfessor) return null;
 

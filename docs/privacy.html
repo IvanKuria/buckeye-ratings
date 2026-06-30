@@ -59,17 +59,17 @@
     has no access to any authenticated Ohio State system.</p>
 
     <h2>Network requests</h2>
-    <p>To display ratings, the extension fetches data from a single source:</p>
+    <p>To display ratings and photos, the extension fetches data from:</p>
     <ul>
       <li><strong>Rate My Professors</strong> (<code>ratemyprofessors.com</code>) — professor ratings and reviews.</li>
+      <li><strong>Ohio State class API</strong> (<code>content.osu.edu</code>) — the same public class data the Class Search page itself loads, used to look up an instructor's OSU username for their headshot.</li>
+      <li><strong>Ohio State photo service</strong> (<code>opic.osu.edu</code>) — the official OSU headshot for that username.</li>
     </ul>
-    <p>These requests contain only a professor's name — never
-    anything about you. No identifiers, cookies, or personal data are sent. The
-    extension does not contact any Ohio State server; instructor names are read
-    locally from the Class Search page.</p>
+    <p>These requests contain only a professor's name, course, or username — never
+    anything about you. No identifiers, cookies, or personal data are sent.</p>
 
     <h2>Local storage</h2>
-    <p>Fetched ratings are cached in your browser's local extension storage
+    <p>Fetched ratings and photo URLs are cached in your browser's local extension storage
     (<code>chrome.storage.local</code>) to speed up repeat visits. This data never
     leaves your device and can be cleared at any time from the extension's
     settings ("Clear cache") or by removing the extension.</p>

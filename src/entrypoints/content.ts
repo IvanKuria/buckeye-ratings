@@ -52,6 +52,95 @@ function fetchProfessorData(name: string): Promise<FetchProfessorDataResponse> {
   });
 }
 
+// --- Instructor email capture (for headshots) ---
+//
+// The DOM gives the instructor's name but not their OSU username. The public
+// class API (content.osu.edu) returns the same instructors WITH an email whose
+// local part is the username (e.g. "blanas.2@osu.edu" -> blanas.2). We fetch the
+// API for the current search, map name -> email, and stamp it onto each section's
+// ProfessorData so the side panel can resolve a departmental headshot. The join
+// uses the API's own displayName, which matches the DOM exactly.
+
+const OSU_API = 'https://content.osu.edu/v2/classes/search';
+const MAX_API_PAGES = 8;
+
+/** name (lowercased) -> instructor email. */
+const emailByName = new Map<string, string>();
+/** Injected payloads, so a late-arriving email map can patch them in place. */
+const injectedByName = new Map<string, ProfessorData[]>();
+let currentSearchKey = '';
+
+/** Reads q / campus / term from the SPA's hash query string. */
+function readSearchParams(): { q: string; campus: string; term: string } | null {
+  const hash = location.hash || '';
+  const qi = hash.indexOf('?');
+  if (qi === -1) return null;
+  const p = new URLSearchParams(hash.slice(qi + 1));
+  const q = p.get('q') || '';
+  const term = p.get('term') || '';
+  if (!q || !term) return null;
+  return { q, campus: p.get('campus') || 'col', term };
+}
+
+/**
+ * Fetches the class API for the current search (paginated) and rebuilds the
+ * name->email map, then patches any already-injected payloads. Safe to call
+ * repeatedly; it no-ops when the search hasn't changed.
+ */
+async function refreshEmails(): Promise<void> {
+  const params = readSearchParams();
+  if (!params) return;
+  const key = `${params.q}|${params.campus}|${params.term}`;
+  if (key === currentSearchKey && emailByName.size) return;
+  currentSearchKey = key;
+  emailByName.clear();
+
+  try {
+    for (let page = 1; page <= MAX_API_PAGES; page++) {
+      const url = `${OSU_API}?q=${encodeURIComponent(params.q)}&client=class-search-ui&campus=${params.campus}&term=${params.term}&p=${page}`;
+      const res = await fetch(url);
+      if (!res.ok) break;
+      const json = (await res.json()) as OsuSearchResponse;
+      const courses = json?.data?.courses ?? [];
+      for (const c of courses) {
+        for (const s of c.sections ?? []) {
+          for (const m of s.meetings ?? []) {
+            for (const i of m.instructors ?? []) {
+              if (i.displayName && i.email) {
+                emailByName.set(i.displayName.toLowerCase(), i.email);
+              }
+            }
+          }
+        }
+      }
+      const total = json?.data?.totalPages ?? 1;
+      if (page >= total) break;
+    }
+  } catch {
+    /* network hiccup — photos just fall back to initials this pass */
+  }
+
+  // Patch payloads injected before the map was ready.
+  for (const [name, list] of injectedByName) {
+    const email = emailByName.get(name);
+    if (email) for (const pd of list) pd.instructorEmail = email;
+  }
+}
+
+/** Minimal shape of the content.osu.edu class-search response we read. */
+interface OsuSearchResponse {
+  data?: {
+    totalPages?: number;
+    courses?: Array<{
+      sections?: Array<{
+        meetings?: Array<{
+          instructors?: Array<{ displayName?: string; email?: string }>;
+        }>;
+      }>;
+    }>;
+  };
+}
+
 interface ParsedSection {
   course: string;
   instructorName: string;
@@ -151,9 +240,16 @@ async function processSection(sec: HTMLElement): Promise<void> {
     localResearchTopic: null,
     localClassesTaught: null,
     instructorName,
-    instructorEmail: null,
+    // Username for the headshot lookup, from the class API (or patched in later
+    // by refreshEmails if the map wasn't ready yet).
+    instructorEmail: emailByName.get(instructorName.toLowerCase()) ?? null,
     course,
   };
+  const nameKey = instructorName.toLowerCase();
+  const list = injectedByName.get(nameKey);
+  if (list) list.push(professorData);
+  else injectedByName.set(nameKey, [professorData]);
+
   renderComponent(mount, RatingBar, { professorData, loading: false });
 }
 
@@ -183,9 +279,22 @@ export default defineContentScript({
       timer = setTimeout(scan, 200);
     };
 
+    // On a new search the instructor set changes, so refresh the email map
+    // (it patches any sections already injected) and clear our processed marks
+    // so the rebuilt sections get re-scanned.
+    window.addEventListener('hashchange', () => {
+      injectedByName.clear();
+      document
+        .querySelectorAll<HTMLElement>(`[${PROCESSED_ATTR}]`)
+        .forEach((el) => el.removeAttribute(PROCESSED_ATTR));
+      void refreshEmails().then(scan);
+    });
+
     const start = () => {
       const observer = new MutationObserver(schedule);
       observer.observe(document.body, { childList: true, subtree: true });
+      // Prime the email map for the initial search, then scan.
+      void refreshEmails().then(scan);
       scan();
     };
 

@@ -32,7 +32,7 @@ quality, difficulty, would-take-again, top tags, and student reviews.
 
 - **Inline ratings.** Every section in the Class Search results gets a rating bar showing the professor's Rate My Professors score, review count, and would-take-again percentage.
 - **Professor profiles.** Click "Details" to open a side panel with the full Rate My Professors profile: quality, difficulty, would-take-again, top tags, and recent reviews.
-- **Clean avatars.** Each professor gets a tidy initials avatar — no clutter, no broken images.
+- **Professor photos.** Official OSU headshots from the university photo service (`opic.osu.edu`), keyed by the instructor's username, with a clean initials avatar fallback when there's no photo.
 - **Smart matching.** Instructor names on the page are full "First Last", so matching against the right RMP professor at The Ohio State University is accurate.
 - **Fast.** Lazy-loaded modules and one-week caching keep repeat visits instant.
 - **Privacy first.** All cached data is stored locally. No analytics, no tracking, no data collection.
@@ -102,8 +102,12 @@ Open side panel on "Details"
 
 - All cached data is stored locally in `chrome.storage.local`.
 - No analytics or telemetry.
-- The only network request goes to `ratemyprofessors.com` (ratings and reviews) — only a professor's name is ever sent, never anything about you. Instructor names are read locally from the Class Search page; no OSU server is contacted.
-- Permissions are scoped to `classes.osu.edu` and `www.ratemyprofessors.com`.
+- Network requests go to `ratemyprofessors.com` (ratings and reviews),
+  `content.osu.edu` (OSU's public class API, to look up the instructor's
+  username for their headshot), and `opic.osu.edu` (the OSU photo service). Only
+  a professor's name, course, or username is ever sent — never anything about you.
+- Permissions are scoped to `classes.osu.edu`, `content.osu.edu`, `opic.osu.edu`,
+  and `www.ratemyprofessors.com`.
 
 ## Credits
 

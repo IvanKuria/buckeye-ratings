@@ -20,7 +20,8 @@ you can size up a class without leaving the page or juggling tabs.
   review count, and would-take-again percentage right under the class.
 • Side panel profile — click "Details" for the full breakdown: quality,
   difficulty, would-take-again, top tags, and recent student reviews.
-• Clean avatars — every professor gets a tidy initials avatar.
+• Professor photos — official OSU headshots from the university photo service,
+  with a clean initials avatar fallback.
 • Works on the public Class Search — no login required.
 • Privacy-first — all data is cached locally. No analytics, no tracking, no
   accounts.
@@ -34,7 +35,7 @@ BuckeyeRatings has one purpose: to display professor ratings alongside class
 listings on Ohio State's Class Search.
 
 ## Permission justifications (required)
-- **storage** — cache fetched ratings locally so repeat visits
+- **storage** — cache fetched ratings and photo URLs locally so repeat visits
   are fast; nothing is sent anywhere.
 - **sidePanel** — show the full professor profile (ratings, tags, reviews) in
   Chrome's side panel when the user clicks "Details".
@@ -42,6 +43,11 @@ listings on Ohio State's Class Search.
   to read the instructor and course names already shown on the Class Search
   results and inject the rating bar.
 - **Host: www.ratemyprofessors.com** — fetch professor ratings and reviews.
+- **Host: content.osu.edu** — Ohio State's public class API (the same data the
+  Class Search page loads), used to look up an instructor's OSU username for
+  their headshot.
+- **Host: opic.osu.edu** — fetch the instructor's official OSU headshot from the
+  university photo service.
 
 ## Data usage disclosures (dashboard certifications)
 - Does the extension collect user data? **No.**
