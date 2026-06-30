@@ -45,8 +45,10 @@ async function probePhoto(username: string): Promise<string | null> {
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) return null;
+    // Real headshots are served as JPEG; the no-photo default is a PNG
+    // silhouette. Keep the URL unless it's that PNG placeholder.
     const type = (res.headers.get('content-type') || '').toLowerCase();
-    return type.includes('jpeg') || type.includes('jpg') ? url : null;
+    return type.includes('png') ? null : url;
   } catch {
     return null;
   } finally {

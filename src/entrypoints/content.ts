@@ -69,13 +69,21 @@ const emailByName = new Map<string, string>();
 /** Injected payloads, so a late-arriving email map can patch them in place. */
 const injectedByName = new Map<string, ProfessorData[]>();
 let currentSearchKey = '';
+let refreshInFlight: Promise<void> | null = null;
+
+/** Canonical name key shared by the DOM and the API join. */
+function normName(s: string): string {
+  return s.replace(/\s+/g, ' ').trim().toLowerCase();
+}
 
 /** Reads q / campus / term from the SPA's hash query string. */
 function readSearchParams(): { q: string; campus: string; term: string } | null {
   const hash = location.hash || '';
   const qi = hash.indexOf('?');
   if (qi === -1) return null;
-  const p = new URLSearchParams(hash.slice(qi + 1));
+  // Trim a trailing in-page anchor (e.g. "...&p=1#top-nav").
+  const query = hash.slice(qi + 1).split('#')[0];
+  const p = new URLSearchParams(query);
   const q = p.get('q') || '';
   const term = p.get('term') || '';
   if (!q || !term) return null;
@@ -84,47 +92,54 @@ function readSearchParams(): { q: string; campus: string; term: string } | null 
 
 /**
  * Fetches the class API for the current search (paginated) and rebuilds the
- * name->email map, then patches any already-injected payloads. Safe to call
- * repeatedly; it no-ops when the search hasn't changed.
+ * name->email map, then patches any already-injected payloads. Safe to call on
+ * every scan: it no-ops when the search hasn't changed, and de-dupes concurrent
+ * calls. Driven from scan() (not the unreliable hashchange event) so the map is
+ * always current with whatever the SPA has rendered.
  */
-async function refreshEmails(): Promise<void> {
+function refreshEmails(): Promise<void> {
   const params = readSearchParams();
-  if (!params) return;
+  if (!params) return Promise.resolve();
   const key = `${params.q}|${params.campus}|${params.term}`;
-  if (key === currentSearchKey && emailByName.size) return;
+  if (key === currentSearchKey) return refreshInFlight ?? Promise.resolve();
+
   currentSearchKey = key;
   emailByName.clear();
 
-  try {
-    for (let page = 1; page <= MAX_API_PAGES; page++) {
-      const url = `${OSU_API}?q=${encodeURIComponent(params.q)}&client=class-search-ui&campus=${params.campus}&term=${params.term}&p=${page}`;
-      const res = await fetch(url);
-      if (!res.ok) break;
-      const json = (await res.json()) as OsuSearchResponse;
-      const courses = json?.data?.courses ?? [];
-      for (const c of courses) {
-        for (const s of c.sections ?? []) {
-          for (const m of s.meetings ?? []) {
-            for (const i of m.instructors ?? []) {
-              if (i.displayName && i.email) {
-                emailByName.set(i.displayName.toLowerCase(), i.email);
+  refreshInFlight = (async () => {
+    try {
+      for (let page = 1; page <= MAX_API_PAGES; page++) {
+        const url = `${OSU_API}?q=${encodeURIComponent(params.q)}&client=class-search-ui&campus=${params.campus}&term=${params.term}&p=${page}`;
+        const res = await fetch(url);
+        if (!res.ok) break;
+        const json = (await res.json()) as OsuSearchResponse;
+        const courses = json?.data?.courses ?? [];
+        for (const c of courses) {
+          for (const s of c.sections ?? []) {
+            for (const m of s.meetings ?? []) {
+              for (const i of m.instructors ?? []) {
+                if (i.displayName && i.email) {
+                  emailByName.set(normName(i.displayName), i.email);
+                }
               }
             }
           }
         }
+        const total = json?.data?.totalPages ?? 1;
+        if (page >= total) break;
       }
-      const total = json?.data?.totalPages ?? 1;
-      if (page >= total) break;
+    } catch {
+      /* network hiccup — photos just fall back to initials this pass */
     }
-  } catch {
-    /* network hiccup — photos just fall back to initials this pass */
-  }
 
-  // Patch payloads injected before the map was ready.
-  for (const [name, list] of injectedByName) {
-    const email = emailByName.get(name);
-    if (email) for (const pd of list) pd.instructorEmail = email;
-  }
+    // Patch payloads injected before the map was ready.
+    for (const [name, list] of injectedByName) {
+      const email = emailByName.get(name);
+      if (email) for (const pd of list) pd.instructorEmail = email;
+    }
+  })();
+
+  return refreshInFlight;
 }
 
 /** Minimal shape of the content.osu.edu class-search response we read. */
@@ -242,10 +257,10 @@ async function processSection(sec: HTMLElement): Promise<void> {
     instructorName,
     // Username for the headshot lookup, from the class API (or patched in later
     // by refreshEmails if the map wasn't ready yet).
-    instructorEmail: emailByName.get(instructorName.toLowerCase()) ?? null,
+    instructorEmail: emailByName.get(normName(instructorName)) ?? null,
     course,
   };
-  const nameKey = instructorName.toLowerCase();
+  const nameKey = normName(instructorName);
   const list = injectedByName.get(nameKey);
   if (list) list.push(professorData);
   else injectedByName.set(nameKey, [professorData]);
@@ -253,8 +268,14 @@ async function processSection(sec: HTMLElement): Promise<void> {
   renderComponent(mount, RatingBar, { professorData, loading: false });
 }
 
-/** Scans all unprocessed sections and processes them. Idempotent. */
-function scan(): void {
+/**
+ * Refreshes the email map for the current search (no-ops when unchanged), then
+ * processes all unprocessed sections. Driving the refresh from here — rather
+ * than a hashchange event the SPA may not fire — guarantees the username map is
+ * current with whatever has rendered before we build each bar. Idempotent.
+ */
+async function scan(): Promise<void> {
+  await refreshEmails();
   document
     .querySelectorAll<HTMLElement>(SECTION_SELECTOR)
     .forEach((sec) => {
@@ -276,26 +297,13 @@ export default defineContentScript({
     let timer: ReturnType<typeof setTimeout> | null = null;
     const schedule = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(scan, 200);
+      timer = setTimeout(() => void scan(), 200);
     };
-
-    // On a new search the instructor set changes, so refresh the email map
-    // (it patches any sections already injected) and clear our processed marks
-    // so the rebuilt sections get re-scanned.
-    window.addEventListener('hashchange', () => {
-      injectedByName.clear();
-      document
-        .querySelectorAll<HTMLElement>(`[${PROCESSED_ATTR}]`)
-        .forEach((el) => el.removeAttribute(PROCESSED_ATTR));
-      void refreshEmails().then(scan);
-    });
 
     const start = () => {
       const observer = new MutationObserver(schedule);
       observer.observe(document.body, { childList: true, subtree: true });
-      // Prime the email map for the initial search, then scan.
-      void refreshEmails().then(scan);
-      scan();
+      void scan();
     };
 
     if (document.body) start();
