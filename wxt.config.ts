@@ -9,7 +9,7 @@ export default defineConfig({
   }),
   manifest: {
     name: 'BuckeyeRatings',
-    version: '1.0.0',
+    version: '1.1.0',
     description:
       "View professor ratings from Rate My Professors while browsing Ohio State's Class Search.",
     permissions: ['storage', 'sidePanel'],
